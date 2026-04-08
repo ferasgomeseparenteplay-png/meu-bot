@@ -5,12 +5,25 @@ import re
 
 app = Flask(__name__)
 
+# 🔥 MEMÓRIA TEMPORÁRIA
+nome_usuario = None
+
 def normalizar(texto):
     texto = texto.lower().strip()
     texto = unicodedata.normalize("NFD", texto)
     texto = ''.join(c for c in texto if unicodedata.category(c) != 'Mn')
     texto = re.sub(r'(.)\1+', r'\1', texto)
     return texto
+
+# 🔥 DETECTAR NOME
+def pegar_nome(fala):
+    if "meu nome é" in fala:
+        return fala.replace("meu nome é", "").strip()
+    if "me chamo" in fala:
+        return fala.replace("me chamo", "").strip()
+    if "sou o" in fala:
+        return fala.replace("sou o", "").strip()
+    return None
 
 nome_bot = "Alfred"
 
@@ -28,7 +41,11 @@ respostas = {
     "bom dia": ["Bom dia! Tudo bem?", "Bom dia, parceiro!"],
     "boa tarde": ["Boa tarde! Tudo certo?", "Boa tarde, parceiro!"],
     "boa noite": ["Boa noite! Como foi o dia?", "Boa noite, parceiro!"],
-    "como você está": ["Estou bem, e você?", "Tudo ótimo, e contigo?"]
+    "como você está": ["Estou bem, e você?", "Tudo ótimo, e contigo?"],
+
+    # 🔥 PERGUNTAS DE NOME
+    "qual meu nome": ["Ainda não sei seu nome 🤔", "Você ainda não me disse seu nome 😅"],
+    "sabe meu nome": ["Ainda não sei 😅", "Não ainda 🤔"]
 }
 
 respostas_normalizadas = {}
@@ -39,13 +56,24 @@ for chave in respostas:
 
 @app.route("/", methods=["GET", "POST"])
 def home():
+    global nome_usuario
     resposta = ""
 
     if request.method == "POST":
         fala = normalizar(request.form["msg"])
 
+        # 🔥 DETECTAR NOME
+        nome_detectado = pegar_nome(fala)
+        if nome_detectado:
+            nome_usuario = nome_detectado
+            resposta = f"Prazer, {nome_usuario}! Vou lembrar disso 😎"
+
+        # 🔥 SE NÃO TEM NOME AINDA
+        elif not nome_usuario:
+            resposta = "Qual é seu nome? 🤔"
+
         # 🔥 JOGO
-        if fala in ["pedra", "papel", "tesoura"]:
+        elif fala in ["pedra", "papel", "tesoura"]:
             computador = random.choice(["pedra", "papel", "tesoura"])
 
             if fala == computador:
@@ -67,6 +95,10 @@ def home():
 
             if not resposta:
                 resposta = "Não entendi 🤔"
+
+        # 🔥 PERSONALIZA COM NOME
+        if nome_usuario and "prazer" not in resposta.lower():
+            resposta = f"{nome_usuario}, {resposta}"
 
     return f'''
         <h1>{nome_bot}</h1>
